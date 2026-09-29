@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-// Запускается планировщиком задач, но не открывается через браузер.
+// Запускается только из командной строки (например, через cron).
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit;
@@ -10,57 +10,55 @@ if (PHP_SAPI !== 'cli') {
 require __DIR__ . '/src/app.php';
 $config = require __DIR__ . '/config.php';
 
-function send_telegram_message(string $token, string $chatId, string $text): void
+function send_email_reminder(string $to, string $from, string $message): void
 {
-    if (!ini_get('allow_url_fopen')) {
-        throw new RuntimeException('В PHP необходимо включить allow_url_fopen для отправки в Telegram.');
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL) ||
+        !filter_var($from, FILTER_VALIDATE_EMAIL)) {
+        throw new RuntimeException('Проверьте email-адреса в config.php.');
     }
 
-    // Тот же способ отправки, что в обработчике формы: HTTPS-запрос через PHP.
-    $url = 'https://api.telegram.org/bot' . $token . '/sendMessage?' . http_build_query([
-        'chat_id' => $chatId,
-        'text' => $text,
-    ]);
-    $context = stream_context_create(['http' => [
-        'timeout' => 15,
-        'ignore_errors' => true,
-    ]]);
-    // Предупреждение PHP может содержать URL с токеном, поэтому не выводим его в журнал.
-    $response = @file_get_contents($url, false, $context);
-    if ($response === false) {
-        throw new RuntimeException('PHP не удалось соединиться с Telegram. Проверьте доступ к api.telegram.org с этого сервера.');
-    }
-    $answer = json_decode($response, true);
-    if (!is_array($answer) || ($answer['ok'] ?? false) !== true) {
-        $description = is_array($answer) ? (string) ($answer['description'] ?? 'неизвестная ошибка') : 'неверный ответ';
-        throw new RuntimeException('Telegram отклонил сообщение: ' . $description);
+    $subject = '=?UTF-8?B?' . base64_encode('Пора поменять линзы') . '?=';
+
+    $headers = [
+        'From' => $from,
+        'MIME-Version' => '1.0',
+        'Content-Type' => 'text/plain; charset=UTF-8',
+    ];
+
+    if (!mail($to, $subject, $message, $headers)) {
+        throw new RuntimeException(
+            'Хостинг не принял письмо. Проверьте, разрешена ли функция mail() в PHP.'
+        );
     }
 }
 
 try {
-    $token = (string) ($config['telegram_bot_token'] ?? '');
-    $chatId = (string) ($config['telegram_chat_id'] ?? '');
-    if ($token === '' || $chatId === '' || str_starts_with($token, 'ТОКЕН_') || $chatId === 'ВАШ_CHAT_ID') {
-        throw new RuntimeException('Укажите telegram_bot_token и telegram_chat_id в config.php.');
-    }
+    $to = (string) ($config['notification_email'] ?? '');
+    $from = (string) ($config['sender_email'] ?? '');
 
-    update_state(static function (array &$state) use ($token, $chatId): void {
+    update_state(static function (array &$state) use ($to, $from): void {
         if ($state['replacements'] === []) {
             return;
         }
+
         $last = new DateTimeImmutable(end($state['replacements']));
         $due = $last->modify('+5 seconds');
         // $due = $last->modify('+14 days');
         $cycle = $last->format(DateTimeInterface::ATOM);
-        if (new DateTimeImmutable() < $due || ($state['notified_for'] ?? null) === $cycle) {
+
+        if (new DateTimeImmutable() < $due ||
+            ($state['notified_for'] ?? null) === $cycle) {
             return;
         }
 
-        // Блокировка файла удерживается до ответа Telegram: соседние запуски
-        // планировщика не отправят одно напоминание одновременно.
-        send_telegram_message($token, $chatId, 'Пора поменять линзы. Срок текущей пары истёк ' . format_date($due) . '. После замены нажмите «Поменял линзы» на сайте.');
+        $message = 'Пора поменять линзы. Срок текущей пары истёк '
+            . format_date($due)
+            . '. После замены нажмите «Поменял линзы» на сайте.';
+
+        send_email_reminder($to, $from, $message);
+
         $state['notified_for'] = $cycle;
-        echo "Напоминание отправлено.\n";
+        echo "Письмо передано на отправку.\n";
     });
 } catch (Throwable $error) {
     fwrite(STDERR, $error->getMessage() . "\n");

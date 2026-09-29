@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-// Файл находится вне public и не должен быть доступен через браузер.
+// Файл находится вне public.
 return [
     'site_user' => 'solnce',
     'site_password' => 'solnce',
-    'telegram_bot_token' => '8513006859:AAFhgi19p5M4i1WsH4-mxoy4bJT71xS4das',
-    'telegram_chat_id' => '757758342',
+    'notification_email' => 'pivnenko-myu@rguk.ru',
+    'sender_email' => 'reminder@maximpivnenko.ru',
 ];
