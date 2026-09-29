@@ -1,0 +1,13 @@
+# Для Apache, когда корень сайта указывает на папку lens-reminder/.
+# Если корень сайта уже public/, этот файл не требуется.
+Options -Indexes
+RewriteEngine On
+
+# Закрываем служебные файлы и каталоги от прямого доступа.
+RewriteRule (^|/)\. - [F]
+RewriteRule ^(?:config\.php|notify\.php|README\.md|cron\.log|src(?:/|$)|data(?:/|$)) - [F,NC]
+
+# Браузеру доступны только файлы из public/.
+RewriteRule ^public/ - [L]
+RewriteRule ^$ public/index.php [L]
+RewriteRule ^(.+)$ public/$1 [L]

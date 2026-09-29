@@ -1,0 +1,29 @@
+:root { color-scheme: light; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f3f7f9; color: #172b38; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 300px; }
+.container { width: min(100% - 32px, 760px); margin: 0 auto; padding: 72px 0 64px; }
+.page-header { margin-bottom: 32px; }
+.eyebrow { color: #237a85; font-size: 13px; font-weight: 800; letter-spacing: .12em; }
+h1 { margin: 12px 0 6px; font-size: clamp(32px, 7vw, 52px); line-height: 1.1; letter-spacing: -.04em; }
+.page-header p { margin: 0; color: #61737c; font-size: 17px; }
+.card { background: #fff; border: 1px solid #e0e9ed; border-radius: 22px; padding: clamp(24px, 5vw, 40px); box-shadow: 0 12px 40px rgba(17, 55, 70, .06); }
+.card-top, .history-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.label { font-size: 17px; font-weight: 700; }
+.period, .history-title span { border-radius: 999px; padding: 6px 12px; background: #e9f5f4; color: #166a72; font-size: 14px; font-weight: 700; white-space: nowrap; }
+.due-date { margin: 22px 0 6px; font-size: clamp(27px, 5vw, 40px); line-height: 1.2; font-weight: 750; letter-spacing: -.03em; }
+.due-date.overdue { color: #b34235; }
+.detail { min-height: 24px; margin: 0 0 26px; color: #61737c; line-height: 1.5; }
+.success { color: #176a56; font-weight: 650; }
+button { width: 100%; min-height: 54px; border: 0; border-radius: 12px; background: #136f78; color: #fff; font: inherit; font-size: 17px; font-weight: 750; cursor: pointer; }
+button:hover { background: #0e5860; }
+button:focus-visible { outline: 3px solid #172b38; outline-offset: 3px; }
+.history { margin-top: 38px; }
+h2 { margin: 0; font-size: 23px; }
+.empty { padding: 24px; border: 1px dashed #c8d8de; border-radius: 14px; color: #61737c; }
+.table-wrap { overflow-x: auto; margin-top: 17px; background: #fff; border: 1px solid #e0e9ed; border-radius: 14px; }
+table { width: 100%; border-collapse: collapse; text-align: left; font-variant-numeric: tabular-nums; }
+th, td { padding: 16px 18px; border-bottom: 1px solid #e9eef1; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+th { color: #61737c; font-size: 14px; font-weight: 700; }
+td { font-size: 15px; }
+@media (max-width: 480px) { .container { padding-top: 44px; } th, td { padding: 14px 12px; } }
