@@ -5,30 +5,90 @@ require __DIR__ . '/../src/app.php';
 $config = require __DIR__ . '/../config.php';
 
 // Одна личная учётная запись. Публиковать сайт следует только по HTTPS.
+$siteUser = (string) ($config['site_user'] ?? 'lens');
 $password = (string) ($config['site_password'] ?? '');
-if ($password === '') {
+if ($password === '' || $password === 'ЗАМЕНИТЕ_НА_СВОЙ_ПАРОЛЬ') {
     http_response_code(503);
     exit('Сначала укажите свой пароль в config.php.');
 }
-$user = (string) ($_SERVER['PHP_AUTH_USER'] ?? '');
-$givenPassword = (string) ($_SERVER['PHP_AUTH_PW'] ?? '');
-if ($user !== 'solnce' || !hash_equals($password, $givenPassword)) {
-    header('WWW-Authenticate: Basic realm="Lens reminder", charset="UTF-8"');
-    http_response_code(401);
-    exit('Требуется пароль.');
-}
-
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
 session_start();
 if (empty($_SESSION['csrf'])) {
     $_SESSION['csrf'] = bin2hex(random_bytes(32));
 }
+$loginKey = hash('sha256', $siteUser . "\0" . $password);
+$loginError = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $token = $_POST['csrf'] ?? '';
+    if (!is_string($token) || !hash_equals($_SESSION['csrf'], $token)) {
+        http_response_code(403);
+        exit('Неверный токен формы. Обновите страницу.');
+    }
+    $action = $_POST['action'] ?? '';
+    if ($action === 'login') {
+        $user = (string) ($_POST['user'] ?? '');
+        $givenPassword = (string) ($_POST['password'] ?? '');
+        if (hash_equals($siteUser, $user) && hash_equals($password, $givenPassword)) {
+            session_regenerate_id(true);
+            $_SESSION['login_key'] = $loginKey;
+            header('Location: /', true, 303);
+            exit;
+        }
+        $loginError = 'Неверное имя пользователя или пароль.';
+    } elseif ($action === 'logout') {
+        unset($_SESSION['login_key']);
+        session_regenerate_id(true);
+        header('Location: /', true, 303);
+        exit;
+    }
+}
+
+if (!hash_equals($loginKey, (string) ($_SESSION['login_key'] ?? ''))) {
+    http_response_code(401);
+    ?>
+    <!doctype html>
+    <html lang="ru">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Вход — замена линз</title>
+        <link rel="stylesheet" href="/style.css">
+    </head>
+    <body>
+    <main class="container login-container">
+        <section class="card" aria-labelledby="login-heading">
+            <h1 id="login-heading">Вход</h1>
+            <p class="detail">Календарь замены линз</p>
+            <?php if ($loginError !== ''): ?><p class="login-error" role="alert"><?= htmlspecialchars($loginError, ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+            <form method="post">
+                <input type="hidden" name="action" value="login">
+                <input type="hidden" name="csrf" value="<?= htmlspecialchars($_SESSION['csrf'], ENT_QUOTES, 'UTF-8') ?>">
+                <label for="user">Имя пользователя</label>
+                <input id="user" name="user" autocomplete="username" required autofocus>
+                <label for="password">Пароль</label>
+                <input id="password" name="password" type="password" autocomplete="current-password" required>
+                <button type="submit">Войти</button>
+            </form>
+        </section>
+    </main>
+    </body>
+    </html>
+    <?php
+    exit;
+}
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $token = $_POST['csrf'] ?? '';
-        if (!is_string($token) || !hash_equals($_SESSION['csrf'], $token)) {
-            http_response_code(403);
-            exit('Неверный токен формы. Обновите страницу.');
+        if (($_POST['action'] ?? '') !== 'replace') {
+            http_response_code(400);
+            exit('Неизвестное действие.');
         }
         update_state(static function (array &$state): void {
             $state['replacements'][] = (new DateTimeImmutable())->format(DateTimeInterface::ATOM);
@@ -63,6 +123,11 @@ $status = $due === null ? 'Начните отсчёт' : ($remaining <= 0 ? 'П
 <body>
 <main class="container">
     <header class="page-header">
+        <form method="post" class="logout-form">
+            <input type="hidden" name="action" value="logout">
+            <input type="hidden" name="csrf" value="<?= htmlspecialchars($_SESSION['csrf'], ENT_QUOTES, 'UTF-8') ?>">
+            <button type="submit">Выйти</button>
+        </form>
         <span class="eyebrow">ЛИЧНЫЙ КАЛЕНДАРЬ</span>
         <h1>Замена линз</h1>
         <p>Новая пара каждые 14 дней.</p>
@@ -85,6 +150,7 @@ $status = $due === null ? 'Начните отсчёт' : ($remaining <= 0 ? 'П
         </p>
         <?php if (isset($_GET['saved'])): ?><p class="success" role="status">Замена записана в историю.</p><?php endif; ?>
         <form method="post">
+            <input type="hidden" name="action" value="replace">
             <input type="hidden" name="csrf" value="<?= htmlspecialchars($_SESSION['csrf'], ENT_QUOTES, 'UTF-8') ?>">
             <button type="submit">Поменял линзы</button>
         </form>
