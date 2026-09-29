@@ -6,7 +6,7 @@ $config = require __DIR__ . '/../config.php';
 
 // Одна личная учётная запись. Публиковать сайт следует только по HTTPS.
 $password = (string) ($config['site_password'] ?? '');
-if ($password === '' || $password === 'solnce') {
+if ($password === '') {
     http_response_code(503);
     exit('Сначала укажите свой пароль в config.php.');
 }
